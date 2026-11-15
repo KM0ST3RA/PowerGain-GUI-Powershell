@@ -2,7 +2,7 @@
 <#
 .SYNOPSIS Interface Windows PowerShell pour MP3Gain.
 .DESCRIPTION MP3Gain effectue les analyses et modifie les fichiers MP3 sans réencodage.
-.VERSION 0.6 - 2026-11
+.VERSION 0.7 - 2026-11
 #>
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -36,10 +36,85 @@ function T([string]$Key) {
     if($null -eq $state -or $null -eq $state.Texts){return $Key}
     return $state.Texts[$state.Language][$Key]
 }
+$script:appRoot=$PSScriptRoot
+if(-not $script:appRoot -and $ScriptRoot){$script:appRoot=$ScriptRoot}
+if(-not $script:appRoot){try{$script:appRoot=[IO.Path]::GetDirectoryName([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)}catch{$script:appRoot=(Get-Location).Path}}
+$script:settingsFile=Join-Path $script:appRoot 'settings.ini'
+$script:legacySettingsFile=Join-Path (Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'PowerGain-GUI') 'settings.ini'
+function Read-AppSettings {
+    $settings=@{}
+    $readFile=$script:settingsFile
+    if(-not (Test-Path -LiteralPath $readFile -PathType Leaf) -and (Test-Path -LiteralPath $script:legacySettingsFile -PathType Leaf)){$readFile=$script:legacySettingsFile}
+    if(-not (Test-Path -LiteralPath $readFile -PathType Leaf)){return $settings}
+    try {
+        foreach($line in [IO.File]::ReadAllLines($readFile)) {
+            $entry=$line.Trim()
+            if(-not $entry -or $entry.StartsWith(';') -or $entry.StartsWith('[')){continue}
+            $separator=$entry.IndexOf('=')
+            if($separator -le 0){continue}
+            $key=$entry.Substring(0,$separator).Trim()
+            $value=$entry.Substring($separator+1).Trim()
+            if($key){$settings[$key]=$value}
+        }
+    } catch {}
+    return $settings
+}
+function Get-AppSettingBoolean([string]$Name,[bool]$Default) {
+    if(-not $script:appSettings.ContainsKey($Name)){return $Default}
+    $parsed=$false
+    if([bool]::TryParse([string]$script:appSettings[$Name],[ref]$parsed)){return $parsed}
+    return $Default
+}
+function Get-AppSettingInteger([string]$Name,[int]$Default) {
+    if(-not $script:appSettings.ContainsKey($Name)){return $Default}
+    $parsed=0
+    if([int]::TryParse([string]$script:appSettings[$Name],[Globalization.NumberStyles]::Integer,[Globalization.CultureInfo]::InvariantCulture,[ref]$parsed)){return $parsed}
+    return $Default
+}
+function Get-AppSettingDouble([string]$Name,[double]$Default) {
+    if(-not $script:appSettings.ContainsKey($Name)){return $Default}
+    $parsed=0.0
+    if([double]::TryParse([string]$script:appSettings[$Name],[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$parsed)){return $parsed}
+    return $Default
+}
+function Save-AppSettings {
+    try {
+        [void][IO.Directory]::CreateDirectory($script:appRoot)
+        $path=''
+        if($script:mp3GainPath){$path=$script:mp3GainPath}
+        $lines=@(
+            '[PowerGain-GUI]'
+            "Mp3GainPath=$path"
+            "Language=$($global:MP3GainGUI_State.Language)"
+            "TargetDb=$($target.Value.ToString([Globalization.CultureInfo]::InvariantCulture))"
+            "PreventClipping=$($noClip.Checked)"
+            "AlbumByFolder=$($albumByFolder.Checked)"
+            "PreserveTimestamp=$($script:gainOptions.PreserveTimestamp)"
+            "QuietMode=$($script:gainOptions.QuietMode)"
+            "AssumeMpeg2=$($script:gainOptions.AssumeMpeg2)"
+            "WrapGain=$($script:gainOptions.WrapGain)"
+            "ExtraDb=$(([double]$script:gainOptions.ExtraDb).ToString([Globalization.CultureInfo]::InvariantCulture))"
+            "ExtraSteps=$([int]$script:gainOptions.ExtraSteps)"
+            "TagFormat=$($script:gainOptions.TagFormat)"
+        )
+        [IO.File]::WriteAllLines($script:settingsFile,[string[]]$lines,[Text.Encoding]::UTF8)
+    } catch {}
+}
+$script:appSettings=Read-AppSettings
 $script:mp3GainPath=$null
+if($script:appSettings['Mp3GainPath']){$script:mp3GainPath=[string]$script:appSettings['Mp3GainPath']}
+if($script:appSettings['Language'] -in @('fr','en')){$global:MP3GainGUI_State.Language=[string]$script:appSettings['Language']}
 $script:mp3GainVersion=''
 $script:mp3GainVersionLabel=''
-$script:gainOptions=@{ PreserveTimestamp=$false; QuietMode=$false; AssumeMpeg2=$false; WrapGain=$false; ExtraDb=0.0; ExtraSteps=0; TagFormat='i' }
+$script:gainOptions=@{
+    PreserveTimestamp=(Get-AppSettingBoolean 'PreserveTimestamp' $false)
+    QuietMode=(Get-AppSettingBoolean 'QuietMode' $false)
+    AssumeMpeg2=(Get-AppSettingBoolean 'AssumeMpeg2' $false)
+    WrapGain=(Get-AppSettingBoolean 'WrapGain' $false)
+    ExtraDb=(Get-AppSettingDouble 'ExtraDb' 0.0)
+    ExtraSteps=(Get-AppSettingInteger 'ExtraSteps' 0)
+    TagFormat=$(if($script:appSettings['TagFormat'] -in @('a','i')){[string]$script:appSettings['TagFormat']}else{'i'})
+}
 function Format-Invariant([double]$Number) { return $Number.ToString([Globalization.CultureInfo]::InvariantCulture) }
 function Convert-DecibelsToSteps([double]$Decibels) {
     $steps=$Decibels/(5.0*[math]::Log10(2.0))
@@ -67,6 +142,7 @@ function Quote-Argument([string]$Value) {
 }
 function Find-Mp3GainPath {
     $candidates=@()
+    if($script:mp3GainPath){$candidates += $script:mp3GainPath}
     if($PSScriptRoot){$candidates += (Join-Path $PSScriptRoot 'mp3gain.exe')}
     $cmd=Get-Command mp3gain.exe -ErrorAction SilentlyContinue
     if($cmd -and $cmd.Source){$candidates += $cmd.Source}
@@ -80,13 +156,14 @@ function Find-Mp3GainPath {
 function Get-Mp3GainPath {
     if($script:mp3GainPath -and (Test-Path -LiteralPath $script:mp3GainPath -PathType Leaf)){return $script:mp3GainPath}
     $found=Find-Mp3GainPath
-    if($found){$script:mp3GainPath=$found; Write-Mp3GainEngineInfo $found; return $found}
+    if($found){$script:mp3GainPath=$found; Write-Mp3GainEngineInfo $found; Save-AppSettings; return $found}
     $pick = New-Object System.Windows.Forms.OpenFileDialog
     $pick.Title = T 'SelectMp3'
     $pick.Filter = T 'Mp3Filter'
     if ($pick.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
         $script:mp3GainPath=$pick.FileName
         Write-Mp3GainEngineInfo $pick.FileName
+        Save-AppSettings
         return $pick.FileName
     }
     return $null
@@ -127,9 +204,12 @@ function Add-Button([string]$Text,[int]$X,[int]$Y,[int]$W,[scriptblock]$Action) 
 [void](Add-Button (T 'RemoveSelected') 334 395 160 { Remove-Selected })
 [void](Add-Button (T 'Clear') 500 395 110 { $grid.Rows.Clear() })
 $targetLabel=New-Object System.Windows.Forms.Label; $targetLabel.Text=(T 'Target'); $targetLabel.Location=New-Object Drawing.Point(630,402); $targetLabel.AutoSize=$true; $form.Controls.Add($targetLabel); $script:controls.TargetLabel=$targetLabel
-$target=New-Object System.Windows.Forms.NumericUpDown; $target.Location=New-Object Drawing.Point(740,398); $target.Size=New-Object Drawing.Size(75,25); $target.DecimalPlaces=1; $target.Minimum=75; $target.Maximum=95; $target.Increment=0.5; $target.Value=89; $form.Controls.Add($target)
-$noClip=New-Object System.Windows.Forms.CheckBox; $noClip.Text=(T 'PreventClipping'); $noClip.Checked=$true; $noClip.AutoSize=$true; $noClip.Location=New-Object Drawing.Point(835,401); $form.Controls.Add($noClip); $script:controls.NoClip=$noClip
-$albumByFolder=New-Object System.Windows.Forms.CheckBox; $albumByFolder.Text=(T 'AlbumByFolder'); $albumByFolder.Checked=$true; $albumByFolder.AutoSize=$true; $albumByFolder.Location=New-Object Drawing.Point(850,440); $form.Controls.Add($albumByFolder); $script:controls.AlbumByFolder=$albumByFolder
+$target=New-Object System.Windows.Forms.NumericUpDown; $target.Location=New-Object Drawing.Point(740,398); $target.Size=New-Object Drawing.Size(75,25); $target.DecimalPlaces=1; $target.Minimum=75; $target.Maximum=95; $target.Increment=0.5; $target.Value=89
+$savedTarget=0.0
+if([double]::TryParse([string]$script:appSettings['TargetDb'],[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$savedTarget) -and $savedTarget -ge [double]$target.Minimum -and $savedTarget -le [double]$target.Maximum){$target.Value=[decimal]$savedTarget}
+$form.Controls.Add($target); $target.Add_ValueChanged({ Save-AppSettings })
+$noClip=New-Object System.Windows.Forms.CheckBox; $noClip.Text=(T 'PreventClipping'); $noClip.Checked=(Get-AppSettingBoolean 'PreventClipping' $true); $noClip.AutoSize=$true; $noClip.Location=New-Object Drawing.Point(835,401); $form.Controls.Add($noClip); $script:controls.NoClip=$noClip; $noClip.Add_CheckedChanged({ Save-AppSettings })
+$albumByFolder=New-Object System.Windows.Forms.CheckBox; $albumByFolder.Text=(T 'AlbumByFolder'); $albumByFolder.Checked=(Get-AppSettingBoolean 'AlbumByFolder' $true); $albumByFolder.AutoSize=$true; $albumByFolder.Location=New-Object Drawing.Point(850,440); $form.Controls.Add($albumByFolder); $script:controls.AlbumByFolder=$albumByFolder; $albumByFolder.Add_CheckedChanged({ Save-AppSettings })
 #$languageLabel=New-Object System.Windows.Forms.Label; $languageLabel.Text=T 'LanguageLabel'; $languageLabel.Location=New-Object Drawing.Point(939,342); $languageLabel.AutoSize=$true; $form.Controls.Add($languageLabel)
 $language=New-Object System.Windows.Forms.ComboBox; $language.DropDownStyle='DropDownList'; $language.Items.AddRange(@('Français','English')); if($global:MP3GainGUI_State.Language -eq 'en'){$language.SelectedIndex=1}else{$language.SelectedIndex=0}; $language.Location=New-Object Drawing.Point(($form.ClientSize.Width - 174),400); $language.Size=New-Object Drawing.Size(95,25); $language.Anchor='Top,Right'; $form.Controls.Add($language)
 $script:helpButton=Add-Button '?' ($form.ClientSize.Width - 44) 398 26 { Show-About }; $script:helpButton.Anchor='Top,Right'; $script:helpButton.Location=New-Object Drawing.Point(($form.ClientSize.Width - 44),398); $script:helpButton.Size=New-Object Drawing.Size(26,27)
@@ -219,7 +299,7 @@ function Set-Language([string]$Code) {
     $script:controls.TargetLabel.Text=T 'Target'; $script:controls.NoClip.Text=T 'PreventClipping'; $script:controls.AlbumByFolder.Text=T 'AlbumByFolder'; $script:controls.LogLabel.Text=T 'Log'; if($script:mp3GainPath){$status.Text=(T 'EngineReady') -f $script:mp3GainVersion}else{$status.Text=T 'EngineNotFound'}
     foreach($key in $script:actionButtons.Keys) { $script:actionButtons[$key].Text=T $key }
 }
-$language.Add_SelectedIndexChanged({ if($language.SelectedIndex -eq 1){Set-Language 'en'}else{Set-Language 'fr'} })
+$language.Add_SelectedIndexChanged({ if($language.SelectedIndex -eq 1){Set-Language 'en'}else{Set-Language 'fr'}; Save-AppSettings })
 
 function Add-Files {
     $d=New-Object System.Windows.Forms.OpenFileDialog; $d.Title=T 'AddFilesTitle'; $d.Filter=T 'FileFilter'; $d.Multiselect=$true
@@ -227,7 +307,7 @@ function Add-Files {
 }
 function Show-About {
     $body=$global:MP3GainGUI_State.About[$global:MP3GainGUI_State.Language]
-    [System.Windows.Forms.MessageBox]::Show($body,(T 'AboutTitle'),[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+    [System.Windows.Forms.MessageBox]::Show($body,(T 'AboutTitle'),[System.Windows.Forms.MessageBoxButtons]::OK,[System.Windows.Forms.MessageBoxIcon]::none) | Out-Null
 }
 function Show-AdvancedOptions {
     $dialog=New-Object System.Windows.Forms.Form
@@ -252,6 +332,7 @@ function Show-AdvancedOptions {
     $cancel=New-Object System.Windows.Forms.Button; $cancel.Text=T 'Cancel'; $cancel.Location=New-Object Drawing.Point(414,368); $cancel.Size=New-Object Drawing.Size(86,30); $cancel.DialogResult=[System.Windows.Forms.DialogResult]::Cancel; $dialog.Controls.Add($cancel); $dialog.AcceptButton=$save; $dialog.CancelButton=$cancel
     if($dialog.ShowDialog($form) -eq [System.Windows.Forms.DialogResult]::OK) {
         $script:gainOptions=@{ PreserveTimestamp=$preserve.Checked; QuietMode=$quiet.Checked; AssumeMpeg2=$mpeg.Checked; WrapGain=$wrap.Checked; ExtraDb=[double]$db.Value; ExtraSteps=[int]$steps.Value; TagFormat=$(if($tagFormat.SelectedIndex -eq 1){'i'}else{'a'}) }
+        Save-AppSettings
         $log.AppendText("[$(Get-Date -Format 'HH:mm:ss')] $(T 'SettingsSaved')`r`n")
     }
     $dialog.Dispose()
@@ -693,9 +774,14 @@ function Invoke-Mp3Gain([string[]]$ArgsForGain,[string]$OperationName,[System.Wi
 $global:PowerGainGUI_ActiveOperation=$null
 $script:processTimer=New-Object System.Windows.Forms.Timer; $script:processTimer.Interval=50
 $script:processTimer.Add_Tick({ Update-Mp3GainOperation })
-$form.Add_FormClosing({ param($sender,$e) if($global:PowerGainGUI_ActiveOperation){$e.Cancel=$true; $status.Text=T 'Waiting'} })
+$form.Add_FormClosing({
+    param($sender,$e)
+    if($global:PowerGainGUI_ActiveOperation){$e.Cancel=$true; $status.Text=T 'Waiting'}
+    else { Save-AppSettings }
+})
 $startupMp3GainPath=Find-Mp3GainPath
 Write-Mp3GainEngineInfo $startupMp3GainPath
+if($startupMp3GainPath -or -not (Test-Path -LiteralPath $script:settingsFile -PathType Leaf)){Save-AppSettings}
 [void]$form.ShowDialog()
 Remove-Variable -Name PowerGainGUI_ActiveOperation -Scope Global -ErrorAction SilentlyContinue
 Remove-Variable -Name MP3GainGUI_State -Scope Global -ErrorAction SilentlyContinue
