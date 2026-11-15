@@ -23,9 +23,6 @@ PowerGain-GUI lets you:
 - Switch the interface between French and English. File-changing operations require confirmation.
 - Settings saved in a settings.ini file.
 
-Analysis option: Track Analysis passes -e to skip album analysis; Album Analysis calculates album results. MP3Gain 1.5.2 documents -e for this purpose in its source code. If the log says “I don’t recognize option -e”, check the executable path and version shown at startup.
-
-
 ==================================================
 
 FRANÇAIS
@@ -48,8 +45,6 @@ PowerGain-GUI permet de :
 - Choisir le format des tags de gain APE ou ID3v2 et configurer les options avancées : préservation de la date du fichier, mode silencieux, traitement MPEG-2 Layer III, bouclage du gain et corrections supplémentaires en dB ou en pas MP3.
 - Choisir l’interface en français ou en anglais. Les opérations qui modifient les fichiers demandent une confirmation.
 - Réglages enregistrés dans un fichier "settings.ini".
-
-Option d’analyse : l’analyse piste transmet -e pour ignorer l’analyse album ; l’analyse album calcule les résultats de l’album. Le code source de MP3Gain 1.5.2 documente -e à cette fin. Code source Si le journal indique « I don’t recognize option -e », vérifiez le chemin et la version de l’exécutable détecté au démarrage.
 
 
 ==================================================
