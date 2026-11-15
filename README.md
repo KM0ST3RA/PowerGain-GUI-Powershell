@@ -18,10 +18,11 @@ PowerGain-GUI lets you:
 - Set a target volume from 75 to 95 dB; the default is 89 dB. Clipping prevention is enabled by default for track and album gain.
 - View per-file results: estimated volume, track and album gain, maximum amplitude, MP3 gain steps, predicted clipping risk after track gain, and file status. The clipping column does not indicate clipping already present in the file.
 - Follow operations in the progress bar and file-status column. Cancel a running operation while keeping the interface responsive. Raw “bytes written” progress messages are omitted from the log.
-- Find mp3gain.exe beside the script or on PATH, display its version in the window title, and select it manually if it cannot be found.
+- Find mp3gain.exe beside the script or on PATH, display its version in the window title, and select it manually if it cannot be found. Use "MP3Gain Help" button to select mp3gain.exe. 
 - Choose APE or ID3v2 gain tags and configure advanced options, including timestamp preservation, quiet mode, MPEG-2 Layer III handling, gain wrapping, and additional dB or MP3-step adjustments.
 - Switch the interface between French and English. File-changing operations require confirmation.
 Analysis option: Track Analysis passes -e to skip album analysis; Album Analysis calculates album results. MP3Gain 1.5.2 documents -e for this purpose in its source code. If the log says “I don’t recognize option -e”, check the executable path and version shown at startup.
+- Settings saved in a settings.ini file.
 
 ==================================================
 
@@ -41,11 +42,11 @@ PowerGain-GUI permet de :
 - Régler le volume cible entre 75 et 95 dB ; la valeur par défaut est 89 dB. La prévention de l’écrêtage est activée par défaut pour les gains piste et album.
 - Consulter les résultats par fichier : volume estimé, gains piste et album, amplitude maximale, pas de gain MP3, risque d’écrêtage prévu après le gain piste et état du fichier. La colonne d’écrêtage n’indique pas un écrêtage déjà présent dans le fichier.
 - Suivre les opérations dans la barre de progression et la colonne d’état. Annuler une opération en cours sans bloquer l’interface. Les messages bruts « bytes written » sont masqués dans le journal.
-- Trouver mp3gain.exe dans le dossier du script ou dans le PATH, afficher sa version dans le titre de la fenêtre et le sélectionner manuellement s’il est introuvable.
+- Trouver mp3gain.exe dans le dossier du script ou dans le PATH, afficher sa version dans le titre de la fenêtre et le sélectionner manuellement s’il est introuvable. Utilisez le bouton "MP3Gain Help" pour choisir mp3gain.exe.
 - Choisir le format des tags de gain APE ou ID3v2 et configurer les options avancées : préservation de la date du fichier, mode silencieux, traitement MPEG-2 Layer III, bouclage du gain et corrections supplémentaires en dB ou en pas MP3.
 - Choisir l’interface en français ou en anglais. Les opérations qui modifient les fichiers demandent une confirmation.
 Option d’analyse : l’analyse piste transmet -e pour ignorer l’analyse album ; l’analyse album calcule les résultats de l’album. Le code source de MP3Gain 1.5.2 documente -e à cette fin. Code source Si le journal indique « I don’t recognize option -e », vérifiez le chemin et la version de l’exécutable détecté au démarrage.
-
+- Réglages enregistrés dans un fichier "settings.ini".
 
 ==================================================
 
