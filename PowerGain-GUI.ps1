@@ -9,8 +9,8 @@ Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName Microsoft.VisualBasic
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $global:MP3GainGUI_State=@{Language='en'; About=@{
-    fr="PowerGain-GUI`r`nInterface de réglage du gain des fichiers MP3.`r`n`r`nCréée avec l'aide ChatGPT par KM0ST3RA.`r`n`r`nVersion 0.6 - 2026-11"
-    en="PowerGain-GUI`r`nMP3 file gain adjustment interface.`r`n`r`nCreated with ChatGPT by KM0ST3RA.`r`n`r`nVersion 0.6 - 2026-11"
+    fr="PowerGain-GUI`r`nInterface de réglage du gain des fichiers MP3.`r`n`r`nCréée avec l'aide ChatGPT par KM0ST3RA.`r`n`r`nVersion 0.7 - 2026-11"
+    en="PowerGain-GUI`r`nMP3 file gain adjustment interface.`r`n`r`nCreated with ChatGPT by KM0ST3RA.`r`n`r`nVersion 0.7 - 2026-11"
 }; Texts=@{
     fr=@{
         Title='PowerGain-GUI - contrôle du volume MP3'; File='Fichier MP3'; Volume='Volume (dB)'; TrackGain='Gain piste (dB)'; AlbumGain='Gain album (dB)'; Peak='Amplitude max.'; Mp3Steps='Gain MP3 (pas)'; Clipping='Écrêtage'; State='État'
